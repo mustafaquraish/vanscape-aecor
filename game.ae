@@ -34,9 +34,9 @@ def ScaledImage::make(filename: string, width: i32): ScaledImage {
 
 def ScaledImage::rect(&this, x: i32, y: i32): SDLRect {
     return SDLRect::make(
-        x as i32 + .width / 2, 
+        x as i32 + .width / 2,
         y as i32 + .height / 2,
-        .width, 
+        .width,
         .height,
     )
 }
@@ -52,27 +52,121 @@ def ScaledImage::draw_rotated(&this, x: i32, y: i32, angle: f32) {
     renderer.copy_ex(.tex, null, &rect, angle, null, 0)
 }
 
+struct AnimatedImage {
+    imgs: &Vector // &Vector<&SDLTexture>
+    width: i32
+    height: i32
+
+    current: i32
+
+    // Counters to keep track of animation
+    count: i32
+    max_count: i32
+}
+
+def AnimatedImage::make(width: i32, height: i32, max_count: i32): AnimatedImage {
+    let anim: AnimatedImage
+    anim.imgs = Vector::new()
+    anim.width = width
+    anim.height = height
+    anim.max_count = max_count
+    anim.current = 0
+    anim.count = 0
+    return anim
+}
+
+def AnimatedImage::add(this, filename: string) {
+    let img = renderer.load_image(filename)
+    if img == null {
+        println("Failed to load image %s", filename)
+    }
+    // Set up aspect ratio for first image
+    if .imgs.size == 0 {
+        let w = 0
+        let h = 0
+        img.query(null, null, &w, &h)
+        let aspect = w as f32 / h as f32
+        .height = (.width as f32 / aspect) as i32
+    }
+    .imgs.push(img)
+}
+
+def AnimatedImage::rect(&this, x: i32, y: i32): SDLRect {
+    return SDLRect::make(
+        x as i32 + .width / 2,
+        y as i32 + .height / 2,
+        .width,
+        .height,
+    )
+}
+
+def AnimatedImage::draw(&this, x: i32, y: i32) {
+    let img = .imgs.at(.current) as &SDLTexture
+    let rect = .rect(x, y)
+    renderer.copy(img, null, &rect)
+}
+
+def AnimatedImage::draw_rotated(&this, x: i32, y: i32, angle: f32) {
+    let img = .imgs.at(.current) as &SDLTexture
+    angle = degrees(angle)
+    let rect = .rect(x, y)
+    renderer.copy_ex(img, null, &rect, angle, null, 0)
+}
+
+def AnimatedImage::update(&this) {
+    .count += 1
+    if .count >= .max_count {
+        .count = 0
+        .current += 1
+        if .current >= .imgs.size {
+            .current = 0
+        }
+    }
+}
+
 struct Butterfly {
     x: f32
     y: f32
-    img: ScaledImage
+    angle: f32
+    img: AnimatedImage
 }
 
 def Butterfly::make(size: i32): Butterfly {
     let butterfly: Butterfly
     butterfly.x = 0.0
     butterfly.y = 0.0
-    butterfly.img = ScaledImage::make("images/butterfly.png", size)
+    butterfly.img = AnimatedImage::make(size, size, 1)
+
+    // Load all images
+    for let i = 1; i < 16; i += 1 {
+        let filename = `images/butterfly/frame{i}.png`
+        butterfly.img.add(filename)
+        free(filename)
+    }
+
     return butterfly
 }
 
 def Butterfly::draw(&this) {
-    .img.draw(.x as i32, .y as i32)
+    .img.draw_rotated(.x as i32, .y as i32, .angle)
+}
+
+def abs(x: i32): i32 {
+    if x < 0 {
+        return -x
+    }
+    return x
 }
 
 def Butterfly::update(&this) {
+    let dx = mouse_x - .x as i32
+    let dy = mouse_y - .y as i32
+    if abs(dx) + abs(dy) > 4 {
+        .angle = -atan2(-dy as f32, dx as f32) + PI / 2.0
+    }
     .x = mouse_x as f32
     .y = mouse_y as f32
+    .img.update()
 }
 
 struct Van {
