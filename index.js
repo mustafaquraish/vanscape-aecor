@@ -129,6 +129,7 @@ var REMOTE_PACKAGE_SIZE = metadata['remote_package_size'];
         if (!check) throw msg + new Error().stack;
       }
 Module['FS_createPath']("/", "images", true, true);
+Module['FS_createPath']("/images", "butterfly", true, true);
 
       /** @constructor */
       function DataRequest(start, end, audio) {
@@ -204,7 +205,7 @@ Module['FS_createPath']("/", "images", true, true);
     }
 
     }
-    loadPackage({"files": [{"filename": "/images/van.png", "start": 0, "end": 105097}, {"filename": "/images/butterfly.png", "start": 105097, "end": 396352}, {"filename": "/images/hemlock.png", "start": 396352, "end": 403482}], "remote_package_size": 403482});
+    loadPackage({"files": [{"filename": "/images/van.png", "start": 0, "end": 105097}, {"filename": "/images/hemlock.png", "start": 105097, "end": 112227}, {"filename": "/images/butterfly/frame5.png", "start": 112227, "end": 298955}, {"filename": "/images/butterfly/frame3.png", "start": 298955, "end": 547141}, {"filename": "/images/butterfly/frame11.png", "start": 547141, "end": 733869}, {"filename": "/images/butterfly/frame4.png", "start": 733869, "end": 956736}, {"filename": "/images/butterfly/frame1.png", "start": 956736, "end": 1247991}, {"filename": "/images/butterfly/frame15.png", "start": 1247991, "end": 1539246}, {"filename": "/images/butterfly/frame6.png", "start": 1539246, "end": 1705447}, {"filename": "/images/butterfly/frame10.png", "start": 1705447, "end": 1871648}, {"filename": "/images/butterfly/frame8.png", "start": 1871648, "end": 1996686}, {"filename": "/images/butterfly/frame9.png", "start": 1996686, "end": 2142424}, {"filename": "/images/butterfly/frame14.png", "start": 2142424, "end": 2409297}, {"filename": "/images/butterfly/frame7.png", "start": 2409297, "end": 2555035}, {"filename": "/images/butterfly/frame13.png", "start": 2555035, "end": 2803221}, {"filename": "/images/butterfly/frame2.png", "start": 2803221, "end": 3070094}, {"filename": "/images/butterfly/frame12.png", "start": 3070094, "end": 3292961}], "remote_package_size": 3292961});
 
   })();
 
