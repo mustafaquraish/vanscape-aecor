@@ -40,8 +40,8 @@ var Module = typeof Module != 'undefined' ? Module : {};
         // web worker
         PACKAGE_PATH = encodeURIComponent(location.pathname.toString().substring(0, location.pathname.toString().lastIndexOf('/')) + '/');
       }
-      var PACKAGE_NAME = 'build/output.data';
-      var REMOTE_PACKAGE_BASE = 'output.data';
+      var PACKAGE_NAME = 'build/index.data';
+      var REMOTE_PACKAGE_BASE = 'index.data';
       if (typeof Module['locateFilePackage'] === 'function' && !Module['locateFile']) {
         Module['locateFile'] = Module['locateFilePackage'];
         err('warning: you defined Module.locateFilePackage, that has been renamed to Module.locateFile (using your locateFilePackage for now)');
@@ -180,10 +180,10 @@ Module['FS_createPath']("/", "images", true, true);
           var files = metadata['files'];
           for (var i = 0; i < files.length; ++i) {
             DataRequest.prototype.requests[files[i].filename].onload();
-          }          Module['removeRunDependency']('datafile_build/output.data');
+          }          Module['removeRunDependency']('datafile_build/index.data');
 
       };
-      Module['addRunDependency']('datafile_build/output.data');
+      Module['addRunDependency']('datafile_build/index.data');
 
       if (!Module.preloadResults) Module.preloadResults = {};
 
@@ -1181,7 +1181,7 @@ function createExportWrapper(name, fixedasm) {
 }
 
 var wasmBinaryFile;
-  wasmBinaryFile = 'output.wasm';
+  wasmBinaryFile = 'index.wasm';
   if (!isDataURI(wasmBinaryFile)) {
     wasmBinaryFile = locateFile(wasmBinaryFile);
   }
