@@ -1,0 +1,32 @@
+// aecor -l /path/to/lib wasm_main.ae -n
+// docker run --rm -it -v (pwd):/mnt/ -w /mnt/ emscripten/emsdk bash
+// emcc out.c -o output.html -sUSE_SDL_IMAGE=2 -sUSE_SDL=2 --preload-file images --use-preload-plugins
+
+use "@/game.ae"
+
+@compiler c_include "emscripten.h"
+@compiler c_include "emscripten/html5.h"
+
+// No idea what x and y are for...
+def emscripten_set_main_loop(func: fn(), x: i32, y: i32) extern
+
+let game: GameState
+
+def wasm_tick() {
+	one_step(&game)
+}
+
+def main() {
+    SDL::init(SDL_INIT_EVERYTHING)
+    SDL::create_window_renderer(1280, 720, 0, &window, &renderer)
+    SDL::show_cursor(false)
+
+	// This is global for WASM
+    game = GameState::make()
+	emscripten_set_main_loop(wasm_tick, -1, 1)
+
+    renderer.destroy()
+    window.destroy()
+    SDL::quit()
+    return 0
+}

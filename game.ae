@@ -1,0 +1,210 @@
+use "lib/sdl.ae"
+use "lib/math.ae"
+use "lib/vector.ae"
+
+let renderer: &SDLRenderer
+let window: &SDLWindow
+
+let mouse_x: i32
+let mouse_y: i32
+
+struct ScaledImage {
+    tex: &SDLTexture
+    width: i32
+    height: i32
+}
+
+def ScaledImage::make(filename: string, width: i32): ScaledImage {
+    let img: ScaledImage
+    img.tex = renderer.load_image(filename)
+
+    if img.tex == null {
+        println("Failed to load image %s", filename)
+    }
+
+    let w = 0
+    let h = 0
+    img.tex.query(null, null, &w, &h)
+    let aspect = w as f32 / h as f32
+
+    img.width = width
+    img.height = (width as f32 / aspect) as i32
+    return img
+}
+
+def ScaledImage::rect(&this, x: i32, y: i32): SDLRect {
+    return SDLRect::make(
+        x as i32 + .width / 2, 
+        y as i32 + .height / 2,
+        .width, 
+        .height,
+    )
+}
+
+def ScaledImage::draw(&this, x: i32, y: i32) {
+    let rect = .rect(x, y)
+    renderer.copy(.tex, null, &rect)
+}
+
+def ScaledImage::draw_rotated(&this, x: i32, y: i32, angle: f32) {
+    angle = degrees(angle)
+    let rect = .rect(x, y)
+    renderer.copy_ex(.tex, null, &rect, angle, null, 0)
+}
+
+struct Butterfly {
+    x: f32
+    y: f32
+    img: ScaledImage
+}
+
+def Butterfly::make(size: i32): Butterfly {
+    let butterfly: Butterfly
+    butterfly.x = 0.0
+    butterfly.y = 0.0
+    butterfly.img = ScaledImage::make("images/butterfly.png", size)
+    return butterfly
+}
+
+def Butterfly::draw(&this) {
+    .img.draw(.x as i32, .y as i32)
+}
+
+def Butterfly::update(&this) {
+    .x = mouse_x as f32
+    .y = mouse_y as f32
+}
+
+struct Van {
+    x: f32
+    y: f32
+    angle: f32
+    img: ScaledImage
+}
+
+def Van::make(size: i32): Van {
+    let van: Van
+    van.x = 0.0
+    van.y = 0.0
+    van.img = ScaledImage::make("images/van.png", size)
+    return van
+}
+
+def Van::update(&this, bfly: &Butterfly) {
+    let dx = bfly.x - .x
+    let dy = bfly.y - .y
+    let vel = 5.0
+    .angle = atan2(dy, dx)
+    .x += vel * cos(.angle)
+    .y += vel * sin(.angle)
+}
+
+def Van::draw(&this) {
+    .img.draw_rotated(.x as i32, .y as i32, .angle)
+}
+
+struct Bullet {
+    x: f32
+    y: f32
+    vx: f32
+    vy: f32
+    angle: f32
+    img: &ScaledImage
+}
+
+def Bullet::new(x: f32, y: f32, vx: f32, vy: f32, img: &ScaledImage, size: i32): &Bullet {
+    let bullet = calloc(1, sizeof(Bullet)) as &Bullet
+    bullet.x = x
+    bullet.y = y
+    bullet.vx = vx
+    bullet.vy = vy
+    bullet.img = img
+    return bullet
+}
+
+def Bullet::update(&this) {
+    .x += .vx
+    .y += .vy
+    .angle = atan2(mouse_x as f32 - .x, mouse_y as f32 - .y)
+}
+
+def Bullet::draw(&this) {
+    .img.draw_rotated(.x as i32, .y as i32, -.angle + PI / 2.0)
+}
+
+struct GameState {
+    player: Butterfly
+    van: Van
+    bullets: &Vector
+
+    hemlock_img: ScaledImage
+    strawberry_img: ScaledImage
+}
+
+def GameState::make(): GameState {
+    let state: GameState
+    state.player = Butterfly::make(40)
+    state.van = Van::make(70)
+    state.bullets = Vector::new()
+
+    state.hemlock_img = ScaledImage::make("images/hemlock.png", 20)
+    return state
+}
+
+def GameState::update(&this) {
+    .player.update()
+    .van.update(&.player)
+    for let i = 0; i < .bullets.size; i += 1 {
+        let bullet = .bullets.at(i) as &Bullet
+        bullet.update()
+    }
+    if randint() % 100 < 10 {
+        let angle = rand01() * 2.0 * PI
+        let bullet = Bullet::new(
+            .van.x,
+            .van.y,
+            4.0 * cos(angle),
+            4.0 * sin(angle),
+            &.hemlock_img,
+            20,
+        )
+        .bullets.push(bullet)
+    }
+}
+
+def GameState::draw(&this) {
+    .player.draw()
+    .van.draw()
+    for let i = 0; i < .bullets.size; i += 1 {
+        let bullet = .bullets.at(i) as &Bullet
+        bullet.draw()
+    }
+}
+
+// Required to branch out to emscripten
+def one_step(game: &GameState): bool {
+    let e: SDLEvent
+    let quit = false
+
+    while SDL::poll_event(&e) {
+        if e.type == SDL_Quit {
+            quit = true
+        }
+        if e.type == SDL_KeyDown {
+            let key = e.key.keysym.sym
+            if key == SDLKey_Q or key == SDLKey_Esc {
+                quit = true
+            }
+        }
+    }
+
+    SDL::get_mouse_state(&mouse_x, &mouse_y)
+    renderer.set_draw_color(0, 0, 0, 255)
+    renderer.clear()
+
+    game.update()
+    game.draw()
+
+    renderer.present()
+    return quit
+}

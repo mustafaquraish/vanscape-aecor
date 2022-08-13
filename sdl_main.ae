@@ -1,0 +1,20 @@
+use "@/game.ae"
+
+def main() {
+    SDL::init(SDL_INIT_EVERYTHING)
+    SDL::create_window_renderer(1280, 720, 0, &window, &renderer)
+    SDL::show_cursor(false)
+
+    let game = GameState::make()
+
+    let quit = false
+    while not quit {
+        quit = one_step(&game)
+        SDL::delay(30)
+    }
+
+    renderer.destroy()
+    window.destroy()
+    SDL::quit()
+    return 0
+}
