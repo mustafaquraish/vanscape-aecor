@@ -8,6 +8,40 @@ let window: &SDLWindow
 let mouse_x: i32
 let mouse_y: i32
 
+def draw_text(font: &TTFFont, text: string, x: i32, y: i32) {
+    let white = SDLColor::make(255, 255, 255, 255)
+    let msg_surf = font.render_solid(text, white)
+    let msg = renderer.create_texture_from_surface(msg_surf)
+    let w = 0
+    let h = 0
+    msg.query(null, null, &w, &h)
+    let rect = SDLRect::make(x, y, w, h)
+    renderer.copy(msg, null, &rect)
+    msg_surf.destroy()
+    msg.destroy()
+}
+
+struct Circle {
+    x: f32
+    y: f32
+    radius: f32
+}
+
+def Circle::make(x: f32, y: f32, radius: f32): Circle {
+    let circ: Circle
+    circ.x = x
+    circ.y = y
+    circ.radius = radius
+    return circ
+}
+
+def Circle::intersects(this, other: Circle): bool {
+    let dx = .x - other.x
+    let dy = .y - other.y
+    let thres = .radius + other.radius
+    return dx * dx + dy * dy < thres * thres
+}
+
 struct ScaledImage {
     tex: &SDLTexture
     width: i32
@@ -34,8 +68,8 @@ def ScaledImage::make(filename: string, width: i32): ScaledImage {
 
 def ScaledImage::rect(&this, x: i32, y: i32): SDLRect {
     return SDLRect::make(
-        x as i32 + .width / 2,
-        y as i32 + .height / 2,
+        x as i32 - .width / 2,
+        y as i32 - .height / 2,
         .width,
         .height,
     )
@@ -93,8 +127,8 @@ def AnimatedImage::add(this, filename: string) {
 
 def AnimatedImage::rect(&this, x: i32, y: i32): SDLRect {
     return SDLRect::make(
-        x as i32 + .width / 2,
-        y as i32 + .height / 2,
+        x as i32 - .width / 2,
+        y as i32 - .height / 2,
         .width,
         .height,
     )
@@ -128,6 +162,7 @@ struct Butterfly {
     x: f32
     y: f32
     angle: f32
+    size: f32
     img: AnimatedImage
 }
 
@@ -135,16 +170,21 @@ def Butterfly::make(size: i32): Butterfly {
     let butterfly: Butterfly
     butterfly.x = 0.0
     butterfly.y = 0.0
+    butterfly.size = size as f32
     butterfly.img = AnimatedImage::make(size, size, 1)
 
     // Load all images
     for let i = 1; i < 16; i += 1 {
-        let filename = `images/butterfly/frame{i}.png`
+        let filename = `assets/butterfly/frame{i}.png`
         butterfly.img.add(filename)
         free(filename)
     }
 
     return butterfly
+}
+
+def Butterfly::bounds(&this): Circle {
+    return Circle::make(.x, .y, .size / 2.0)
 }
 
 def Butterfly::draw(&this) {
@@ -172,6 +212,7 @@ def Butterfly::update(&this) {
 struct Van {
     x: f32
     y: f32
+    size: f32
     angle: f32
     img: ScaledImage
 }
@@ -180,7 +221,8 @@ def Van::make(size: i32): Van {
     let van: Van
     van.x = 0.0
     van.y = 0.0
-    van.img = ScaledImage::make("images/van.png", size)
+    van.size = size as f32
+    van.img = ScaledImage::make("assets/van.png", size)
     return van
 }
 
@@ -193,6 +235,10 @@ def Van::update(&this, bfly: &Butterfly) {
     .y += vel * sin(.angle)
 }
 
+def Van::bounds(&this): Circle {
+    return Circle::make(.x, .y, .size / 2.0)
+}
+
 def Van::draw(&this) {
     .img.draw_rotated(.x as i32, .y as i32, .angle)
 }
@@ -202,6 +248,7 @@ struct Bullet {
     y: f32
     vx: f32
     vy: f32
+    size: f32
     angle: f32
     img: &ScaledImage
 }
@@ -213,7 +260,12 @@ def Bullet::new(x: f32, y: f32, vx: f32, vy: f32, img: &ScaledImage, size: i32):
     bullet.vx = vx
     bullet.vy = vy
     bullet.img = img
+    bullet.size = size as f32
     return bullet
+}
+
+def Bullet::bounds(&this): Circle {
+    return Circle::make(.x, .y, .size / 2.0)
 }
 
 def Bullet::update(&this) {
@@ -231,27 +283,103 @@ struct GameState {
     van: Van
     bullets: &Vector
 
+    lives: i32
+    score: i32
+    best_score: i32
+
+    width: i32
+    height: i32
+
     hemlock_img: ScaledImage
     strawberry_img: ScaledImage
+
+    font_40: &TTFFont
 }
 
-def GameState::make(): GameState {
-    let state: GameState
-    state.player = Butterfly::make(40)
-    state.van = Van::make(70)
-    state.bullets = Vector::new()
+def GameState::make(width: i32, height: i32): GameState {
+    let game: GameState
+    game.player = Butterfly::make(40)
+    game.van = Van::make(70)
+    game.bullets = Vector::new()
 
-    state.hemlock_img = ScaledImage::make("images/hemlock.png", 20)
-    return state
+    game.width = width
+    game.height = height
+    game.best_score = 0
+
+    game.hemlock_img = ScaledImage::make("assets/hemlock.png", 20)
+    game.font_40 = TTFFont::load("assets/font.ttf", 40)
+    if game.font_40 == null {
+        println("Could not load font: %s", TTF::get_error())
+        exit(1)
+    }
+
+    game.reset()
+    return game
+}
+
+def GameState::reset(&this) {
+    .player.x = .width as f32 / 2.0
+    .player.y = .height as f32 / 2.0
+    .set_van_to_random_corner()
+    for let i = 0; i < .bullets.size; i += 1 {
+        let bullet = .bullets.at(i) as &Bullet
+        free(bullet)
+    }
+    .bullets.size = 0
+    .score = 0
+    .lives = 3
+}
+
+def GameState::set_van_to_random_corner(&this) {
+    .van.x = (randint() % 2) as f32 * .width as f32
+    .van.y = (randint() % 2) as f32 * .height as f32
+}
+
+def GameState::out_of_bounds(&this, x: i32, y: i32): bool {
+    return x < 0 or x > .width or y < 0 or y > .height
 }
 
 def GameState::update(&this) {
     .player.update()
+    let player_bounds = .player.bounds()
+
     .van.update(&.player)
+    if .van.bounds().intersects(player_bounds) {
+        .set_van_to_random_corner()
+        .lives -= 1
+    }
+
+    let j = 0
     for let i = 0; i < .bullets.size; i += 1 {
         let bullet = .bullets.at(i) as &Bullet
         bullet.update()
+
+        let off_screen = .out_of_bounds(bullet.x as i32, bullet.y as i32)
+        let hit_player = bullet.bounds().intersects(player_bounds)
+
+        // Get rid of the bullet
+        if off_screen or hit_player {
+            free(bullet)
+
+        // Otherwise, update it and move to the first empty slot
+        } else {
+            .bullets.data[j] = bullet
+            j += 1
+        }
+
+        if hit_player {
+            .lives -= 1
+        }
     }
+    .bullets.size = j
+
+    if .lives <= 0 {
+        .reset()
+    }
+
+    .score += 1
+    .best_score = max(.best_score, .score)
+
     if randint() % 100 < 10 {
         let angle = rand01() * 2.0 * PI
         let bullet = Bullet::new(
@@ -266,6 +394,20 @@ def GameState::update(&this) {
     }
 }
 
+def GameState::draw_overlay(&this) {
+    let score_text = `Score: {.score}`
+    draw_text(.font_40, score_text, .width / 2 - 100, 10)
+    free(score_text)
+
+    let best_text = `Best: {.best_score}`
+    draw_text(.font_40, best_text, 40, 10)
+    free(best_text)
+
+    let lives_text = `Lives: {.lives}`
+    draw_text(.font_40, lives_text, .width - 200, 10)
+    free(lives_text)
+}
+
 def GameState::draw(&this) {
     .player.draw()
     .van.draw()
@@ -273,6 +415,7 @@ def GameState::draw(&this) {
         let bullet = .bullets.at(i) as &Bullet
         bullet.draw()
     }
+    .draw_overlay()
 }
 
 // Required to branch out to emscripten

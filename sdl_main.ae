@@ -1,11 +1,15 @@
 use "@/game.ae"
 
 def main() {
-    SDL::init(SDL_INIT_EVERYTHING)
-    SDL::create_window_renderer(1280, 720, 0, &window, &renderer)
-    SDL::show_cursor(false)
+    let width = 1280
+    let height = 720
 
-    let game = GameState::make()
+    SDL::init(SDL_INIT_EVERYTHING)
+    SDL::create_window_renderer(width, height, 0, &window, &renderer)
+    SDL::show_cursor(false)
+    TTF::init()
+
+    let game = GameState::make(width, height)
 
     let quit = false
     while not quit {

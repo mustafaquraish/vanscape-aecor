@@ -17,12 +17,16 @@ def wasm_tick() {
 }
 
 def main() {
+    let width = 1280
+    let height = 720
+
     SDL::init(SDL_INIT_EVERYTHING)
-    SDL::create_window_renderer(1280, 720, 0, &window, &renderer)
+    SDL::create_window_renderer(width, height, 0, &window, &renderer)
     SDL::show_cursor(false)
+    TTF::init()
 
 	// This is global for WASM
-    game = GameState::make()
+    game = GameState::make(width, height)
 	emscripten_set_main_loop(wasm_tick, -1, 1)
 
     renderer.destroy()
