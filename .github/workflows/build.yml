@@ -11,6 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - uses: mymindstorm/setup-emsdk@v11
+
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
@@ -30,7 +32,7 @@ jobs:
           ./aecor/bootstrap/aecor -l ./aecor/ wasm_main.ae -n
 
       - name: Build WASM binary
-        run: docker run --rm -v $(pwd):/mnt -w /mnt/ emscripten/emsdk ./build_wasm.sh
+        run: ./build_wasm.sh
 
       - name: Deploy 🚀
         uses: JamesIves/github-pages-deploy-action@4.1.0
