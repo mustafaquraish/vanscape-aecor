@@ -2,176 +2,48 @@ use "lib/sdl.ae"
 use "lib/math.ae"
 use "lib/vector.ae"
 
+use "@/utils.ae"
+
+///////// Configuration
+
+let BUTTERFLY_SIZE = 40
+
+let VAN_SPEED = 3.0
+let VAN_SIZE = 100
+
+let HEMLOCK_SIZE = 20
+let HAM_SIZE = 40
+let BERRY_SIZE = 20
+
+let BULLET_SPEED = 2.0
+
+let BULLET_SPAWN_RATE = 0.1
+let HAM_SPAWN_RATE = 0.03    // 3% of spawned bullets
+
+let NUM_BERRIES_EXPLODING = 20
+
+///////// Globals
+
 let renderer: &SDLRenderer
 let window: &SDLWindow
 
 let mouse_x: i32
 let mouse_y: i32
 
-def draw_text(font: &TTFFont, text: string, x: i32, y: i32) {
-    let white = SDLColor::make(255, 255, 255, 255)
-    let msg_surf = font.render_solid(text, white)
-    let msg = renderer.create_texture_from_surface(msg_surf)
-    let w = 0
-    let h = 0
-    msg.query(null, null, &w, &h)
-    let rect = SDLRect::make(x, y, w, h)
-    renderer.copy(msg, null, &rect)
-    msg_surf.destroy()
-    msg.destroy()
-}
-
-struct Circle {
-    x: f32
-    y: f32
-    radius: f32
-}
-
-def Circle::make(x: f32, y: f32, radius: f32): Circle {
-    let circ: Circle
-    circ.x = x
-    circ.y = y
-    circ.radius = radius
-    return circ
-}
-
-def Circle::intersects(this, other: Circle): bool {
-    let dx = .x - other.x
-    let dy = .y - other.y
-    let thres = .radius + other.radius
-    return dx * dx + dy * dy < thres * thres
-}
-
-struct ScaledImage {
-    tex: &SDLTexture
-    width: i32
-    height: i32
-}
-
-def ScaledImage::make(filename: string, width: i32): ScaledImage {
-    let img: ScaledImage
-    img.tex = renderer.load_image(filename)
-
-    if img.tex == null {
-        println("Failed to load image %s", filename)
-    }
-
-    let w = 0
-    let h = 0
-    img.tex.query(null, null, &w, &h)
-    let aspect = w as f32 / h as f32
-
-    img.width = width
-    img.height = (width as f32 / aspect) as i32
-    return img
-}
-
-def ScaledImage::rect(&this, x: i32, y: i32): SDLRect {
-    return SDLRect::make(
-        x as i32 - .width / 2,
-        y as i32 - .height / 2,
-        .width,
-        .height,
-    )
-}
-
-def ScaledImage::draw(&this, x: i32, y: i32) {
-    let rect = .rect(x, y)
-    renderer.copy(.tex, null, &rect)
-}
-
-def ScaledImage::draw_rotated(&this, x: i32, y: i32, angle: f32) {
-    angle = degrees(angle)
-    let rect = .rect(x, y)
-    renderer.copy_ex(.tex, null, &rect, angle, null, 0)
-}
-
-struct AnimatedImage {
-    imgs: &Vector // &Vector<&SDLTexture>
-    width: i32
-    height: i32
-
-    current: i32
-
-    // Counters to keep track of animation
-    count: i32
-    max_count: i32
-}
-
-def AnimatedImage::make(width: i32, height: i32, max_count: i32): AnimatedImage {
-    let anim: AnimatedImage
-    anim.imgs = Vector::new()
-    anim.width = width
-    anim.height = height
-    anim.max_count = max_count
-    anim.current = 0
-    anim.count = 0
-    return anim
-}
-
-def AnimatedImage::add(this, filename: string) {
-    let img = renderer.load_image(filename)
-    if img == null {
-        println("Failed to load image %s", filename)
-    }
-    // Set up aspect ratio for first image
-    if .imgs.size == 0 {
-        let w = 0
-        let h = 0
-        img.query(null, null, &w, &h)
-        let aspect = w as f32 / h as f32
-        .height = (.width as f32 / aspect) as i32
-    }
-    .imgs.push(img)
-}
-
-def AnimatedImage::rect(&this, x: i32, y: i32): SDLRect {
-    return SDLRect::make(
-        x as i32 - .width / 2,
-        y as i32 - .height / 2,
-        .width,
-        .height,
-    )
-}
-
-def AnimatedImage::draw(&this, x: i32, y: i32) {
-    let img = .imgs.at(.current) as &SDLTexture
-    let rect = .rect(x, y)
-    renderer.copy(img, null, &rect)
-}
-
-def AnimatedImage::draw_rotated(&this, x: i32, y: i32, angle: f32) {
-    let img = .imgs.at(.current) as &SDLTexture
-    angle = degrees(angle)
-    let rect = .rect(x, y)
-    renderer.copy_ex(img, null, &rect, angle, null, 0)
-}
-
-def AnimatedImage::update(&this) {
-    .count += 1
-    if .count >= .max_count {
-        .count = 0
-        .current += 1
-        if .current >= .imgs.size {
-            .current = 0
-        }
-    }
-}
+/////////
 
 struct Butterfly {
     x: f32
     y: f32
     angle: f32
-    size: f32
     img: AnimatedImage
 }
 
-def Butterfly::make(size: i32): Butterfly {
+def Butterfly::make(): Butterfly {
     let butterfly: Butterfly
     butterfly.x = 0.0
     butterfly.y = 0.0
-    butterfly.size = size as f32
-    butterfly.img = AnimatedImage::make(size, size, 1)
+    butterfly.img = AnimatedImage::make(BUTTERFLY_SIZE, BUTTERFLY_SIZE, 1)
 
     // Load all images
     for let i = 1; i < 16; i += 1 {
@@ -184,18 +56,11 @@ def Butterfly::make(size: i32): Butterfly {
 }
 
 def Butterfly::bounds(&this): Circle {
-    return Circle::make(.x, .y, .size / 2.0)
+    return Circle::make(.x, .y, BUTTERFLY_SIZE as f32 / 2.0)
 }
 
 def Butterfly::draw(&this) {
     .img.draw_rotated(.x as i32, .y as i32, .angle)
-}
-
-def abs(x: i32): i32 {
-    if x < 0 {
-        return -x
-    }
-    return x
 }
 
 def Butterfly::update(&this) {
@@ -212,55 +77,74 @@ def Butterfly::update(&this) {
 struct Van {
     x: f32
     y: f32
-    size: f32
     angle: f32
     img: ScaledImage
 }
 
-def Van::make(size: i32): Van {
+def Van::make(): Van {
     let van: Van
     van.x = 0.0
     van.y = 0.0
-    van.size = size as f32
-    van.img = ScaledImage::make("assets/van.png", size)
+    van.img = ScaledImage::make("assets/van.png", VAN_SIZE)
     return van
 }
 
 def Van::update(&this, bfly: &Butterfly) {
     let dx = bfly.x - .x
     let dy = bfly.y - .y
-    let vel = 5.0
+    let vel = 3.0
     .angle = atan2(dy, dx)
     .x += vel * cos(.angle)
     .y += vel * sin(.angle)
 }
 
 def Van::bounds(&this): Circle {
-    return Circle::make(.x, .y, .size / 2.0)
+    return Circle::make(.x, .y, VAN_SIZE as f32 / 2.0)
 }
 
 def Van::draw(&this) {
     .img.draw_rotated(.x as i32, .y as i32, .angle)
 }
 
+enum BulletType {
+    Hemlock
+    Ham
+    Berry
+}
+
 struct Bullet {
+    type: BulletType
     x: f32
     y: f32
     vx: f32
     vy: f32
     size: f32
     angle: f32
+    counter: i32
+    finished: bool
     img: &ScaledImage
 }
 
-def Bullet::new(x: f32, y: f32, vx: f32, vy: f32, img: &ScaledImage, size: i32): &Bullet {
+def Bullet::new(type: BulletType, x: f32, y: f32, vx: f32, vy: f32, img: &ScaledImage): &Bullet {
     let bullet = calloc(1, sizeof(Bullet)) as &Bullet
+    bullet.type = type
     bullet.x = x
     bullet.y = y
     bullet.vx = vx
     bullet.vy = vy
     bullet.img = img
-    bullet.size = size as f32
+    bullet.finished = false
+
+    match type {
+        Hemlock => bullet.size = HEMLOCK_SIZE as f32
+        Berry => bullet.size = BERRY_SIZE as f32
+        Ham => {
+            bullet.size = HAM_SIZE as f32
+            // Random explosion time for BulletType::Ham
+            bullet.counter = randint() % 30 + 30
+        }
+    }
+
     return bullet
 }
 
@@ -268,10 +152,44 @@ def Bullet::bounds(&this): Circle {
     return Circle::make(.x, .y, .size / 2.0)
 }
 
-def Bullet::update(&this) {
+def Bullet::update(&this, game: &GameState) {
     .x += .vx
     .y += .vy
-    .angle = atan2(mouse_x as f32 - .x, mouse_y as f32 - .y)
+
+    if game.out_of_bounds(.x as i32, .y as i32) {
+        .finished = true
+        return
+    }
+
+    // Hemlock is always watching
+    match .type {
+        Hemlock => {
+            .angle = atan2(mouse_x as f32 - .x, mouse_y as f32 - .y)
+        }
+        Ham => {
+            .angle += 0.01
+            .counter -= 1
+            if .counter == 0 {
+                for let i = 0; i < NUM_BERRIES_EXPLODING; i += 1 {
+                    let frac = i as f32 / NUM_BERRIES_EXPLODING as f32
+                    let angle = frac * PI * 2.0
+                    let bullet = Bullet::new(
+                        BulletType::Berry,
+                        .x,
+                        .y,
+                        BULLET_SPEED * cos(angle),
+                        BULLET_SPEED * sin(angle),
+                        &game.berry_img
+                    )
+                    game.bullets.push(bullet)
+                }
+                .finished = true
+            }
+        }
+        Berry => {
+            .angle += 0.01
+        }
+    }
 }
 
 def Bullet::draw(&this) {
@@ -290,23 +208,33 @@ struct GameState {
     width: i32
     height: i32
 
+    // Cached
     hemlock_img: ScaledImage
-    strawberry_img: ScaledImage
+    berry_img: ScaledImage
+    ham_image: ScaledImage
+
+    background_img: &SDLTexture
 
     font_40: &TTFFont
 }
 
 def GameState::make(width: i32, height: i32): GameState {
     let game: GameState
-    game.player = Butterfly::make(40)
-    game.van = Van::make(70)
+    game.player = Butterfly::make()
+    game.van = Van::make()
     game.bullets = Vector::new()
 
     game.width = width
     game.height = height
     game.best_score = 0
 
-    game.hemlock_img = ScaledImage::make("assets/hemlock.png", 20)
+    // Store these in the game object because we reuse them for bullets
+    game.hemlock_img = ScaledImage::make("assets/hemlock.png", HEMLOCK_SIZE)
+    game.ham_image = ScaledImage::make("assets/ham.png", HAM_SIZE)
+    game.berry_img = ScaledImage::make("assets/berry.png", BERRY_SIZE)
+
+    game.background_img = renderer.load_image("assets/grass.png")
+
     game.font_40 = TTFFont::load("assets/font.ttf", 40)
     if game.font_40 == null {
         println("Could not load font: %s", TTF::get_error())
@@ -339,6 +267,36 @@ def GameState::out_of_bounds(&this, x: i32, y: i32): bool {
     return x < 0 or x > .width or y < 0 or y > .height
 }
 
+def GameState::maybe_add_new_bullet(&this) {
+    let dice = rand01()
+    if dice > BULLET_SPAWN_RATE return
+
+    dice = rand01()
+    let bullet = null as &Bullet
+    let angle = rand01() * 2.0 * PI
+
+    if dice < HAM_SPAWN_RATE {
+        bullet = Bullet::new(
+            BulletType::Ham,
+            .van.x,
+            .van.y,
+            BULLET_SPEED * cos(angle),
+            BULLET_SPEED * sin(angle),
+            &.ham_image
+        )
+    } else {
+        bullet = Bullet::new(
+            BulletType::Hemlock,
+            .van.x,
+            .van.y,
+            BULLET_SPEED * cos(angle),
+            BULLET_SPEED * sin(angle),
+            &.hemlock_img
+        )
+    }
+    .bullets.push(bullet)
+}
+
 def GameState::update(&this) {
     .player.update()
     let player_bounds = .player.bounds()
@@ -352,13 +310,13 @@ def GameState::update(&this) {
     let j = 0
     for let i = 0; i < .bullets.size; i += 1 {
         let bullet = .bullets.at(i) as &Bullet
-        bullet.update()
+        bullet.update(this)
 
         let off_screen = .out_of_bounds(bullet.x as i32, bullet.y as i32)
         let hit_player = bullet.bounds().intersects(player_bounds)
 
         // Get rid of the bullet
-        if off_screen or hit_player {
+        if hit_player or bullet.finished {
             free(bullet)
 
         // Otherwise, update it and move to the first empty slot
@@ -380,18 +338,7 @@ def GameState::update(&this) {
     .score += 1
     .best_score = max(.best_score, .score)
 
-    if randint() % 100 < 10 {
-        let angle = rand01() * 2.0 * PI
-        let bullet = Bullet::new(
-            .van.x,
-            .van.y,
-            4.0 * cos(angle),
-            4.0 * sin(angle),
-            &.hemlock_img,
-            20,
-        )
-        .bullets.push(bullet)
-    }
+    .maybe_add_new_bullet()
 }
 
 def GameState::draw_overlay(&this) {
@@ -409,6 +356,9 @@ def GameState::draw_overlay(&this) {
 }
 
 def GameState::draw(&this) {
+    let bg_rect = SDLRect::make(0, 0, .width, .height)
+    renderer.copy(.background_img, null, &bg_rect)
+
     .player.draw()
     .van.draw()
     for let i = 0; i < .bullets.size; i += 1 {

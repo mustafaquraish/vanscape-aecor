@@ -1,14 +1,13 @@
 // aecor -l /path/to/lib wasm_main.ae -n
 // docker run --rm -it -v (pwd):/mnt/ -w /mnt/ emscripten/emsdk bash
-// emcc out.c -o output.html -sUSE_SDL_IMAGE=2 -sUSE_SDL=2 --preload-file images --use-preload-plugins
+// ./build_wasm.sh
 
 use "@/game.ae"
 
 @compiler c_include "emscripten.h"
 @compiler c_include "emscripten/html5.h"
 
-// No idea what x and y are for...
-def emscripten_set_main_loop(func: fn(), x: i32, y: i32) extern
+def emscripten_set_main_loop(func: fn(), fps: i32, simulate_infinite_loop: i32) extern
 
 let game: GameState
 
