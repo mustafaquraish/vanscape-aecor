@@ -16,6 +16,7 @@ jobs:
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
+          ref: 4ef6ded105ff00f53c1780ad36045b53da4a5717
           repository: mustafaquraish/aecor
           path: aecor
 

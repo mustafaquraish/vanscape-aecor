@@ -374,14 +374,15 @@ def one_step(game: &GameState): bool {
     let quit = false
 
     while SDL::poll_event(&e) {
-        if e.type == SDL_Quit {
-            quit = true
-        }
-        if e.type == SDL_KeyDown {
-            let key = e.key.keysym.sym
-            if key == SDLKey_Q or key == SDLKey_Esc {
-                quit = true
+        match e.type {
+            Quit => quit = true
+            KeyDown => {
+                match e.key.keysym.sym {
+                    Q | Escape => quit = true
+                    else => {}
+                }
             }
+            else => {}
         }
     }
 
