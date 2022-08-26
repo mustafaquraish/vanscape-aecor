@@ -7,13 +7,13 @@ def abs(x: i32): i32 {
 }
 
 def draw_text(font: &TTFFont, text: string, x: i32, y: i32) {
-    let white = SDLColor::make(255, 255, 255, 255)
+    let white = SDLColor(255, 255, 255, 255)
     let msg_surf = font.render_solid(text, white)
     let msg = renderer.create_texture_from_surface(msg_surf)
     let w = 0
     let h = 0
     msg.query(null, null, &w, &h)
-    let rect = SDLRect::make(x, y, w, h)
+    let rect = SDLRect(x, y, w, h)
     renderer.copy(msg, null, &rect)
     msg_surf.destroy()
     msg.destroy()
@@ -65,7 +65,7 @@ def ScaledImage::make(filename: string, width: i32): ScaledImage {
 }
 
 def ScaledImage::rect(&this, x: i32, y: i32): SDLRect {
-    return SDLRect::make(
+    return SDLRect(
         x as i32 - .width / 2,
         y as i32 - .height / 2,
         .width,
@@ -124,7 +124,7 @@ def AnimatedImage::add(this, filename: string) {
 }
 
 def AnimatedImage::rect(&this, x: i32, y: i32): SDLRect {
-    return SDLRect::make(
+    return SDLRect(
         x as i32 - .width / 2,
         y as i32 - .height / 2,
         .width,
