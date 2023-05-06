@@ -17,7 +17,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: emsdk-cache-dir
-          key: 0001
+          key: 0002
 
       - uses: mymindstorm/setup-emsdk@v11
         with:

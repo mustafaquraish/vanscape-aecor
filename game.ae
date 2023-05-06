@@ -18,7 +18,7 @@ let BERRY_SIZE = 20
 let BULLET_SPEED = 3.0
 
 let BULLET_SPAWN_RATE = 0.05
-let HAM_SPAWN_RATE = 0.25    // 3% of spawned bullets
+let HAM_SPAWN_RATE = 0.40    // 3% of spawned bullets
 
 let NUM_BERRIES_EXPLODING = 20
 
