@@ -4,6 +4,7 @@ name: build
 # Run on Push
 on: [push]
 
+
 jobs:
   build:
     # Run this on a default linux machine
@@ -11,7 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@master
 
+      - name: Setup cache
+        id: cache-system-libraries
+        uses: actions/cache@v2
+        with:
+          path: emsdk-cache-dir
+          key: 0001
+
       - uses: mymindstorm/setup-emsdk@v11
+        with:
+          actions-cache-folder: emsdk-cache-dir
 
       - name: Checkout tools repo
         uses: actions/checkout@v3
