@@ -16,12 +16,12 @@ jobs:
         id: cache-system-libraries
         uses: actions/cache@v2
         with:
-          path: emsdk-cache-dir
-          key: 0002
+          path: emsdk-caching-dir
+          key: dummy-key-001
 
       - uses: mymindstorm/setup-emsdk@v11
         with:
-          actions-cache-folder: emsdk-cache-dir
+          actions-cache-folder: emsdk-caching-dir
 
       - name: Checkout tools repo
         uses: actions/checkout@v3
