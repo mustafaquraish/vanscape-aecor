@@ -15,10 +15,10 @@ let HEMLOCK_SIZE = 20
 let HAM_SIZE = 40
 let BERRY_SIZE = 20
 
-let BULLET_SPEED = 2.0
+let BULLET_SPEED = 3.0
 
-let BULLET_SPAWN_RATE = 0.1
-let HAM_SPAWN_RATE = 0.03    // 3% of spawned bullets
+let BULLET_SPAWN_RATE = 0.05
+let HAM_SPAWN_RATE = 0.25    // 3% of spawned bullets
 
 let NUM_BERRIES_EXPLODING = 20
 
@@ -92,10 +92,9 @@ def Van::make(): Van {
 def Van::update(&this, bfly: &Butterfly) {
     let dx = bfly.x - .x
     let dy = bfly.y - .y
-    let vel = 3.0
     .angle = atan2(dy, dx)
-    .x += vel * cos(.angle)
-    .y += vel * sin(.angle)
+    .x += VAN_SPEED * cos(.angle)
+    .y += VAN_SPEED * sin(.angle)
 }
 
 def Van::bounds(&this): Circle {
@@ -161,15 +160,16 @@ def Bullet::update(&this, game: &GameState) {
         return
     }
 
-    // Hemlock is always watching
     match .type {
         Hemlock => {
+            // Hemlock is always watching
             .angle = atan2(mouse_x as f32 - .x, mouse_y as f32 - .y)
         }
         Ham => {
             .angle += 0.01
             .counter -= 1
             if .counter == 0 {
+                game.play_sound(game.explode_sound, -1)
                 for let i = 0; i < NUM_BERRIES_EXPLODING; i += 1 {
                     let frac = i as f32 / NUM_BERRIES_EXPLODING as f32
                     let angle = frac * PI * 2.0
@@ -215,7 +215,29 @@ struct GameState {
 
     background_img: &SDLTexture
 
+    font_30: &TTFFont
     font_40: &TTFFont
+
+    boing_sound: &MixChunk
+    explode_sound: &MixChunk
+    pew_sound: &MixChunk
+
+    muted: bool
+}
+
+def GameState::play_sound(&this, sound: &MixChunk, channel: i32) {
+    if not .muted {
+        MIX::play_channel(channel, sound, 0)
+    }
+}
+
+def load_sound(filename: string): &MixChunk {
+    let sound = MIX::load_wav(filename)
+    if not sound? {
+        println(`Could not load sound {filename}`)
+        exit(1)
+    }
+    return sound
 }
 
 def GameState::make(width: i32, height: i32): GameState {
@@ -236,10 +258,25 @@ def GameState::make(width: i32, height: i32): GameState {
     game.background_img = renderer.load_image("assets/grass.png")
 
     game.font_40 = TTFFont::load("assets/font.ttf", 40)
-    if game.font_40 == null {
+    game.font_30 = TTFFont::load("assets/font.ttf", 20)
+    if not game.font_40? or not game.font_30?  {
         println("Could not load font: %s", TTF::get_error())
         exit(1)
     }
+
+    let res = MIX::open_audio(44100, MIX_DEFAULT_FORMAT, 2, 1024)
+    if res != 0 {
+        println(`Could not open audio: {MIX::get_error()}`)
+        exit(1)
+    }
+
+    game.boing_sound = load_sound("assets/boing.wav")
+    game.explode_sound = load_sound("assets/explode.wav")
+    game.pew_sound = load_sound("assets/pew.wav")
+
+    MIX::allocate_channels(10)
+    MIX::volume(-1, 10)
+    MIX::volume(0, 20)
 
     game.reset()
     return game
@@ -276,6 +313,7 @@ def GameState::maybe_add_new_bullet(&this) {
     let angle = rand01() * 2.0 * PI
 
     if dice < HAM_SPAWN_RATE {
+        .play_sound(.boing_sound, 0)
         bullet = Bullet::new(
             BulletType::Ham,
             .van.x,
@@ -285,6 +323,7 @@ def GameState::maybe_add_new_bullet(&this) {
             &.ham_image
         )
     } else {
+        .play_sound(.pew_sound, 0)
         bullet = Bullet::new(
             BulletType::Hemlock,
             .van.x,
@@ -353,6 +392,8 @@ def GameState::draw_overlay(&this) {
     let lives_text = `Lives: {.lives}`
     draw_text(.font_40, lives_text, .width - 200, 10)
     free(lives_text)
+
+    draw_text(.font_30, "(M to toggle sound)", 30, .height - 20 - 30)
 }
 
 def GameState::draw(&this) {
@@ -379,6 +420,7 @@ def one_step(game: &GameState): bool {
             KeyDown => {
                 match e.key.keysym.sym {
                     Q | Escape => quit = true
+                    M => game.muted = not game.muted
                     else => {}
                 }
             }

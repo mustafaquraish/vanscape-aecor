@@ -7,7 +7,7 @@ on: [push]
 jobs:
   build:
     # Run this on a default linux machine
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@master
 
@@ -16,7 +16,7 @@ jobs:
       - name: Checkout tools repo
         uses: actions/checkout@v3
         with:
-          ref: 4ef6ded105ff00f53c1780ad36045b53da4a5717
+          ref: 8423915d2506ae0839fbeb2642a70d40708ea890
           repository: mustafaquraish/aecor
           path: aecor
 
